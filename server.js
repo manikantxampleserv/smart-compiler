@@ -36,6 +36,18 @@ const GEMINI_MODEL = "gemini-flash-lite-latest";
 const COMPILE_TIMEOUT_MS = 120_000;
 const RUN_TIMEOUT_MS = 5_000;
 
+/** ─── Startup ──────────────────────────────────────────────────────────────── */
+
+// On Linux (e.g. Render), ensure the zig binary is executable after npm install.
+if (!IS_WIN) {
+  try {
+    fs.chmodSync(ZIG_PATH, 0o755);
+    console.log("Zig binary marked executable.");
+  } catch {
+    console.warn("Warning: Could not chmod zig binary — C/C++ compilation may fail.");
+  }
+}
+
 /** ─── Helpers ─────────────────────────────────────────────────────────────── */
 
 /**
