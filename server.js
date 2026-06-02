@@ -208,10 +208,19 @@ app.post("/mkx/v1/translate", async (req, res) => {
     const genAI = new GoogleGenerativeAI(apiKey);
     const model = genAI.getGenerativeModel({ model: GEMINI_MODEL });
 
-    const prompt =
+    let prompt =
       `Translate the following code into ${targetLanguage}. ` +
       `Respond ONLY with the raw code. Do NOT wrap it in markdown code blocks like \`\`\`. ` +
-      `Just return the pure code.\n\nCode:\n${code}`;
+      `Just return the pure code.`;
+
+    if (targetLanguage === "javascript") {
+      prompt += ` For JavaScript, ensure the code runs in Node.js environment. ` +
+        `Do NOT use browser-specific functions like prompt(), alert(), or confirm(). ` +
+        `Instead, read input from process.stdin or use command-line arguments. ` +
+        `Use console.log() for output.`;
+    }
+
+    prompt += `\n\nCode:\n${code}`;
 
     const result = await model.generateContent(prompt);
     let translatedCode = result.response.text();
@@ -242,10 +251,17 @@ app.post("/mkx/v1/generate", async (req, res) => {
     const genAI = new GoogleGenerativeAI(apiKey);
     const model = genAI.getGenerativeModel({ model: GEMINI_MODEL });
 
-    const fullPrompt =
+    let fullPrompt =
       `Write ${language} code for the following: ${prompt}. ` +
       `Respond ONLY with the raw code. Do NOT wrap it in markdown code blocks like \`\`\`. ` +
       `Just return the pure, runnable code with no explanation.`;
+
+    if (language === "javascript") {
+      fullPrompt += ` For JavaScript, ensure the code runs in Node.js environment. ` +
+        `Do NOT use browser-specific functions like prompt(), alert(), or confirm(). ` +
+        `Instead, read input from process.stdin or use command-line arguments. ` +
+        `Use console.log() for output.`;
+    }
 
     const result = await model.generateContent(fullPrompt);
     let generatedCode = result.response.text();
