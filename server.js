@@ -142,12 +142,23 @@ async function runCode(language, code, input) {
 
     await fsPromises.writeFile(srcFile, source);
 
-    const compileResult = await spawnProcess(
-      ZIG_PATH,
-      [isCpp ? "c++" : "cc", srcFile, "-o", outFile],
-      "",
-      COMPILE_TIMEOUT_MS
-    );
+    let compileResult;
+    if (os.platform() === "darwin") {
+      const compiler = isCpp ? "clang++" : "clang";
+      compileResult = await spawnProcess(
+        compiler,
+        [srcFile, "-o", outFile],
+        "",
+        COMPILE_TIMEOUT_MS
+      );
+    } else {
+      compileResult = await spawnProcess(
+        ZIG_PATH,
+        [isCpp ? "c++" : "cc", srcFile, "-o", outFile],
+        "",
+        COMPILE_TIMEOUT_MS
+      );
+    }
     if (compileResult.code !== 0) return compileResult;
 
     return spawnProcess(outFile, [], input, RUN_TIMEOUT_MS);
