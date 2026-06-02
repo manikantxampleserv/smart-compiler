@@ -2,7 +2,7 @@
   "name": "smart-compiler",
   "version": "1.0.0",
   "description": "Use C in your server side react components",
-  "main": "this field is so weird",
+  "main": "server.js",
   "scripts": {
     "start": "npm run build && node server.js",
     "dev": "concurrently \"node watch.js\" \"nodemon server.js\"",

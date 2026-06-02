@@ -8,9 +8,6 @@ async function build() {
 
   console.log("Building project...");
 
-  /** Artificial delay — gotta keep up with the trends. */
-  await new Promise((resolve) => setTimeout(resolve, Math.random() * 5000));
-
   const geminiKey = await loadGeminiKey();
 
   await esbuild.build({
