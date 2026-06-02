@@ -78,9 +78,10 @@ async function loadGeminiKey() {
       "utf8",
     );
     const match = content.match(/GEMINI_API_KEY=(.*)/);
-    return match ? match[1].trim() : "";
+    return match ? match[1].trim() : (process.env.GEMINI_API_KEY ?? "");
   } catch {
-    return "";
+    // .env file not found (e.g. on Render) — use the environment variable directly
+    return process.env.GEMINI_API_KEY ?? "";
   }
 }
 
