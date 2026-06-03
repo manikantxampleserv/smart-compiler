@@ -140,9 +140,10 @@ function createTempDir() {
  * @param {string} language - One of: 'c', 'cpp', 'python', 'javascript'.
  * @param {string} code - URI-encoded source code to execute.
  * @param {string} input - Stdin to pass to the running program.
+ * @param {string[]} args - Command-line arguments.
  * @returns {Promise<{ code: number, stdout: string, stderr: string }>}
  */
-async function runCode(language, code, input) {
+async function runCode(language, code, input, args = []) {
   const dir = await createTempDir();
   const source = decodeURIComponent(code);
 
@@ -175,7 +176,7 @@ async function runCode(language, code, input) {
     }
     if (compileResult.code !== 0) return compileResult;
 
-    return spawnProcess(outFile, [], input, RUN_TIMEOUT_MS);
+    return spawnProcess(outFile, args, input, RUN_TIMEOUT_MS);
   }
 
   if (language === "python") {
@@ -183,7 +184,7 @@ async function runCode(language, code, input) {
     await fsPromises.writeFile(srcFile, source);
     return spawnProcess(
       IS_WIN ? "python" : "python3",
-      [srcFile],
+      [srcFile, ...args],
       input,
       RUN_TIMEOUT_MS,
     );
@@ -192,7 +193,7 @@ async function runCode(language, code, input) {
   if (language === "javascript") {
     const srcFile = path.join(dir, "main.js");
     await fsPromises.writeFile(srcFile, source);
-    return spawnProcess("node", [srcFile], input, RUN_TIMEOUT_MS);
+    return spawnProcess("node", [srcFile, ...args], input, RUN_TIMEOUT_MS);
   }
 
   return { code: -1, stdout: "", stderr: `Unsupported language: ${language}` };
@@ -210,8 +211,9 @@ app.get("/health", (req, res) => {
  * Body: { code: string, input?: string, language?: string }
  */
 app.post("/mkx/v1/execute", async (req, res) => {
-  const { code, input = "", language = "c" } = req.body;
-  const result = await runCode(language, code, input);
+  let { code, input = "", args = [], language = "c" } = req.body;
+  if (input && !input.endsWith("\n")) input += "\n";
+  const result = await runCode(language, code, input, args);
   res.json(result);
 });
 
@@ -297,6 +299,48 @@ app.post("/mkx/v1/generate", async (req, res) => {
       .trim();
 
     res.json({ code: generatedCode });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/**
+ * POST /mkx/v1/analyze-inputs
+ * Analyzes code to determine if it needs stdin or args.
+ * Body: { code: string, apiKey: string }
+ */
+app.post("/mkx/v1/analyze-inputs", async (req, res) => {
+  const { code, apiKey } = req.body;
+  if (!apiKey) return res.status(400).json({ error: "Missing API Key" });
+
+  try {
+    const genAI = new GoogleGenerativeAI(apiKey);
+    const model = genAI.getGenerativeModel({ model: GEMINI_MODEL });
+
+    const prompt = `Analyze the following code. Does it require standard input (stdin)? Does it require command-line arguments (args)?
+If so, identify each individual input or argument needed.
+Return a strict JSON object (no markdown, just raw JSON) with the following exact keys:
+{
+  "needsStdin": boolean, // MUST be true if the code uses scanf, cin, input(), or Node.js readline
+  "stdinMessage": "If the code prints a prompt before reading input (e.g. printf('Enter numbers: ')), return that EXACT text. Otherwise, write a short summary.",
+  "stdinFields": [ { "name": "e.g. num1", "description": "e.g. The first number to add" } ],
+  "needsArgs": boolean,
+  "argsMessage": "Short summary describing what command-line arguments are expected, or empty string",
+  "argsFields": [ { "name": "e.g. filename", "description": "e.g. The file to process" } ]
+}
+If no fields are needed, leave the arrays empty.
+Code:
+${code}`;
+
+    const result = await model.generateContent(prompt);
+    let text = result.response.text();
+    text = text
+      .replace(/^```json\n/g, "")
+      .replace(/^```\w*\n/g, "")
+      .replace(/```$/g, "")
+      .trim();
+
+    res.json(JSON.parse(text));
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

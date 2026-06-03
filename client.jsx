@@ -117,14 +117,15 @@ const LINE_HEIGHT_PX = 21;
  *
  * @param {string} code - URI-encoded source code.
  * @param {string} stdin - Standard input for the program.
+ * @param {string[]} args - Command line arguments.
  * @param {string} language - Language identifier.
  * @returns {Promise<{ code: number, stdout: string, stderr: string }>}
  */
-async function executeCode(code, stdin = "", language = "c") {
+async function executeCode(code, stdin = "", args = [], language = "c") {
   const res = await fetch("/mkx/v1/execute", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ code, input: stdin, language }),
+    body: JSON.stringify({ code, input: stdin, args, language }),
   });
   return res.json();
 }
@@ -144,6 +145,15 @@ const getFileName = (lang) =>
 const App = () => {
   /** ── State ───────────────────────────────────────────────────────────────────────── */
 
+  const [modalConfig, setModalConfig] = useState({
+    isOpen: false,
+    title: "",
+    message: "",
+    fields: [],
+    inputValues: [],
+    resolve: null,
+  });
+
   const [codes, setCodes] = useState(() => {
     const saved = localStorage.getItem("codes");
     return saved
@@ -154,6 +164,8 @@ const App = () => {
   const [output, setOutput] = useState(
     "MKX Compiler System Online. Ready for execution.",
   );
+
+  const [cmdArgs, setCmdArgs] = useState("");
 
   const [loading, setLoading] = useState(false);
 
@@ -438,18 +450,115 @@ const App = () => {
     });
   };
 
+  const requestUserInput = (title, message, fields) => {
+    return new Promise((resolve) => {
+      const actualFields =
+        fields && fields.length > 0
+          ? fields
+          : [{ name: "Input", description: "Provide the required input" }];
+      setModalConfig({
+        isOpen: true,
+        title,
+        message,
+        fields: actualFields,
+        inputValues: new Array(actualFields.length).fill(""),
+        resolve,
+      });
+    });
+  };
+
+  const handleModalSubmit = () => {
+    if (modalConfig.resolve) {
+      modalConfig.resolve(modalConfig.inputValues.join(" "));
+    }
+    setModalConfig({ ...modalConfig, isOpen: false, resolve: null });
+  };
+
+  const handleModalCancel = () => {
+    if (modalConfig.resolve) {
+      modalConfig.resolve(null);
+    }
+    setModalConfig({ ...modalConfig, isOpen: false, resolve: null });
+  };
+
   const onRun = async () => {
+    let currentStdin = promptRef.current?.value ?? "";
+    let currentArgsStr = cmdArgs;
+    let expectedPromptStr = "";
+
+    if (!currentStdin.trim() || !currentArgsStr.trim()) {
+      setLoading(true);
+      setOutput(
+        (prev) => prev + `\n\n> AI analyzing code for required inputs...`,
+      );
+
+      try {
+        const res = await fetch("/mkx/v1/analyze-inputs", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ code, apiKey: process.env.GEMINI_API_KEY }),
+        });
+
+        if (res.ok) {
+          const analysis = await res.json();
+
+          if (analysis.needsStdin && !currentStdin.trim()) {
+            expectedPromptStr =
+              analysis.stdinMessage || analysis.stdinPrompt || "";
+            const userInput = await requestUserInput(
+              "AI Detected Input Needed",
+              expectedPromptStr,
+              analysis.stdinFields,
+            );
+            if (userInput === null) {
+              setLoading(false);
+              setOutput(
+                (prev) => prev + `\n[Cancelled] Run cancelled by user.`,
+              );
+              return;
+            }
+            currentStdin = userInput;
+          }
+
+          if (analysis.needsArgs && !currentArgsStr.trim()) {
+            const userArgs = await requestUserInput(
+              "AI Detected Arguments Needed",
+              analysis.argsMessage || analysis.argsPrompt,
+              analysis.argsFields,
+            );
+            if (userArgs === null) {
+              setLoading(false);
+              setOutput(
+                (prev) => prev + `\n[Cancelled] Run cancelled by user.`,
+              );
+              return;
+            }
+            currentArgsStr = userArgs;
+          }
+        }
+      } catch (err) {
+        console.error("AI Analysis failed:", err);
+      }
+    }
+
     setLoading(true);
     setHighlightedError(null);
     setOutput(
       (prev) =>
-        prev + `\n\n> Compiling and running ${getFileName(language)}...`,
+        prev +
+        (prev.endsWith("...")
+          ? `\n> Compiling and running ${getFileName(language)}...`
+          : `\n\n> Compiling and running ${getFileName(language)}...`),
     );
 
     try {
+      const parsedArgs = currentArgsStr.trim()
+        ? currentArgsStr.trim().split(/\s+/)
+        : [];
       const result = await executeCode(
         encodeURIComponent(code),
-        promptRef.current?.value ?? "",
+        currentStdin,
+        parsedArgs,
         language,
       );
       if (result.code !== 0) {
@@ -457,8 +566,16 @@ const App = () => {
           (prev) => prev + "\n[Error] Execution failed:\n" + result.stderr,
         );
       } else {
-        const text =
-          result.stdout + (result.stderr ? "\n" + result.stderr : "");
+        let text = result.stdout + (result.stderr ? "\n" + result.stderr : "");
+
+        // Strip the expected prompt if AI guessed it exactly
+        if (expectedPromptStr && text.includes(expectedPromptStr)) {
+          text = text.replace(expectedPromptStr, "");
+        }
+
+        // Fallback: strip any generic "Enter...:" prompt from the beginning of the output
+        text = text.replace(/^(?:Enter|Please enter|Input)[^:]*:\s*/i, "");
+
         setOutput((prev) => prev + "\n" + text + "\n[Done] exited with code 0");
       }
     } catch (err) {
@@ -476,348 +593,510 @@ const App = () => {
   /** ── Render ────────────────────────────────────────────────────────────────────────── */
 
   return (
-    <div className={layoutStyles}>
-      <div className={topAreaStyles}>
-        {/* Sidebar */}
-        <div className={sidebarStyles}>
-          <div className={sidebarHeaderStyles}>
-            <svg
-              width="16"
-              height="16"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="#007acc"
-              strokeWidth="2.5"
-              strokeLinecap="round"
-              strokeLinejoin="round"
+    <>
+      {modalConfig.isOpen && (
+        <div
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: "rgba(0, 0, 0, 0.7)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 1000,
+          }}
+        >
+          <div
+            style={{
+              backgroundColor: "#252526",
+              border: "1px solid #444",
+              borderRadius: "6px",
+              width: "400px",
+              maxWidth: "90%",
+              boxShadow: "0 4px 12px rgba(0,0,0,0.5)",
+              display: "flex",
+              flexDirection: "column",
+              overflow: "hidden",
+            }}
+          >
+            <div
+              style={{
+                backgroundColor: "#2d2d2d",
+                padding: "10px 15px",
+                borderBottom: "1px solid #444",
+                fontSize: "14px",
+                fontWeight: "bold",
+                color: "#e7e7e7",
+                display: "flex",
+                alignItems: "center",
+                gap: "8px",
+              }}
             >
-              <path d="M4 20L4 4L12 14L20 4L20 20" />
-            </svg>
-            MKX EDITOR
-          </div>
-          <div className={fileItemStyles}>
-            <span className={fileIconStyles}>{getFileIcon(language)}</span>
-            {getFileName(language)}
+              <span style={{ color: "#ebb222" }}>✨</span> {modalConfig.title}
+            </div>
+            <div
+              style={{
+                padding: "15px",
+                display: "flex",
+                flexDirection: "column",
+                gap: "15px",
+              }}
+            >
+              <div
+                style={{
+                  fontSize: "13px",
+                  color: "#cccccc",
+                  lineHeight: "1.4",
+                }}
+              >
+                {modalConfig.message}
+              </div>
+              <div
+                style={{
+                  display: "flex",
+                  flexDirection: "column",
+                  gap: "10px",
+                  maxHeight: "40vh",
+                  overflowY: "auto",
+                  paddingRight: "5px",
+                }}
+              >
+                {modalConfig.fields.map((f, idx) => (
+                  <div
+                    key={idx}
+                    style={{
+                      display: "flex",
+                      flexDirection: "column",
+                      gap: "5px",
+                    }}
+                  >
+                    <label style={{ fontSize: "12px", color: "#a5a5a5" }}>
+                      <strong style={{ color: "#e7e7e7" }}>{f.name}</strong> -{" "}
+                      {f.description}
+                    </label>
+                    <input
+                      autoFocus={idx === 0}
+                      type="text"
+                      value={modalConfig.inputValues[idx] || ""}
+                      onChange={(e) => {
+                        const newVals = [...modalConfig.inputValues];
+                        newVals[idx] = e.target.value;
+                        setModalConfig({
+                          ...modalConfig,
+                          inputValues: newVals,
+                        });
+                      }}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") handleModalSubmit();
+                        if (e.key === "Escape") handleModalCancel();
+                      }}
+                      style={{
+                        backgroundColor: "#1e1e1e",
+                        color: "#cccccc",
+                        border: "1px solid #007acc",
+                        borderRadius: "3px",
+                        padding: "8px 10px",
+                        fontSize: "13px",
+                        fontFamily: '"Consolas", "Courier New", monospace',
+                        outline: "none",
+                      }}
+                      placeholder={`Enter ${f.name}...`}
+                    />
+                  </div>
+                ))}
+              </div>
+              <div
+                style={{
+                  display: "flex",
+                  justifyContent: "flex-end",
+                  gap: "10px",
+                  marginTop: "5px",
+                }}
+              >
+                <button
+                  onClick={handleModalCancel}
+                  style={{
+                    backgroundColor: "transparent",
+                    color: "#cccccc",
+                    border: "1px solid #444",
+                    borderRadius: "3px",
+                    padding: "6px 12px",
+                    fontSize: "12px",
+                    cursor: "pointer",
+                  }}
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleModalSubmit}
+                  style={{
+                    backgroundColor: "#007acc",
+                    color: "#ffffff",
+                    border: "none",
+                    borderRadius: "3px",
+                    padding: "6px 12px",
+                    fontSize: "12px",
+                    cursor: "pointer",
+                  }}
+                >
+                  Submit
+                </button>
+              </div>
+            </div>
           </div>
         </div>
-
-        {/* Main area */}
-        <div className={mainAreaStyles}>
-          {/* Tabs bar */}
-          <div className={tabsBarStyles}>
-            <div className={tabStyles}>
+      )}
+      <div className={layoutStyles}>
+        <div className={topAreaStyles}>
+          {/* Sidebar */}
+          <div className={sidebarStyles}>
+            <div className={sidebarHeaderStyles}>
+              <svg
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="#007acc"
+                strokeWidth="2.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <path d="M4 20L4 4L12 14L20 4L20 20" />
+              </svg>
+              MKX EDITOR
+            </div>
+            <div className={fileItemStyles}>
               <span className={fileIconStyles}>{getFileIcon(language)}</span>
               {getFileName(language)}
             </div>
-            <div style={{ display: "flex", gap: "10px", alignItems: "center" }}>
-              {translationError && (
-                <button
-                  onClick={handleRetryTranslation}
-                  style={{
-                    background: "rgba(244, 71, 71, 0.2)",
-                    color: "#f44747",
-                    border: "1px solid rgba(244, 71, 71, 0.5)",
-                    padding: "4px 8px",
-                    borderRadius: "3px",
-                    fontSize: "12px",
-                    cursor: "pointer",
-                    display: "flex",
-                    alignItems: "center",
-                    gap: "4px",
-                  }}
-                >
-                  <span style={{ fontSize: "14px" }}>⟳</span> Retry Translation
-                </button>
-              )}
-              <select
-                value={language}
-                onChange={handleLanguageChange}
-                style={{
-                  background: "#2d2d2d",
-                  color: "#cccccc",
-                  border: "1px solid #444",
-                  padding: "4px 8px",
-                  borderRadius: "3px",
-                  outline: "none",
-                  fontSize: "12px",
-                  fontFamily: '"Consolas", "Courier New", monospace',
-                }}
-              >
-                <option value="c">C</option>
-                <option value="cpp">C++</option>
-                <option value="python">Python</option>
-                <option value="javascript">JavaScript</option>
-              </select>
-              <button
-                className={runButtonStyles}
-                onClick={onRun}
-                disabled={loading}
-                style={{ opacity: loading ? 0.5 : 1 }}
-              >
-                {loading ? "⚙️ Running..." : "▶ Run Code"}
-              </button>
-            </div>
           </div>
 
-          {/* Split container */}
-          <div
-            className={
-              layoutMode === "split"
-                ? splitContainerRowStyles
-                : splitContainerColStyles
-            }
-            style={{ userSelect: isDragging ? "none" : "auto" }}
-          >
-            {/* Editor pane */}
-            <div className={editorContainerStyles} ref={editorContainerRef}>
-              <div className={editorWrapperStyles}>
-                {/* Line numbers */}
-                <div className={lineNumbersStyles} style={{ zIndex: 2 }}>
-                  {lines.map((n) => (
-                    <div
-                      key={n}
-                      title={
-                        highlightedError?.line === n
-                          ? highlightedError.message
-                          : undefined
-                      }
-                      style={{
-                        color:
-                          highlightedError?.line === n ? "#f44747" : "#858585",
-                        cursor:
-                          highlightedError?.line === n ? "help" : "default",
-                      }}
-                    >
-                      {n}
-                    </div>
-                  ))}
-                </div>
-
-                {/* Error highlight overlay */}
-                {highlightedError !== null && (
-                  <div
+          {/* Main area */}
+          <div className={mainAreaStyles}>
+            {/* Tabs bar */}
+            <div className={tabsBarStyles}>
+              <div className={tabStyles}>
+                <span className={fileIconStyles}>{getFileIcon(language)}</span>
+                {getFileName(language)}
+              </div>
+              <div
+                style={{ display: "flex", gap: "10px", alignItems: "center" }}
+              >
+                {translationError && (
+                  <button
+                    onClick={handleRetryTranslation}
                     style={{
-                      position: "absolute",
-                      top: 20 + (highlightedError.line - 1) * LINE_HEIGHT_PX,
-                      left: 0,
-                      right: 0,
-                      height: LINE_HEIGHT_PX,
-                      backgroundColor: "rgba(244, 71, 71, 0.2)",
-                      pointerEvents: "none",
-                      zIndex: 1,
-                    }}
-                  />
-                )}
-
-                {/* Skeleton loader or editor */}
-                {translating ? (
-                  <div className={skeletonContainerStyles}>
-                    {SKELETON_LINES.map((line, i) => (
-                      <div
-                        key={i}
-                        className={skeletonLineStyles}
-                        style={{
-                          width: line.w,
-                          marginLeft: `${line.indent}px`,
-                          marginTop: `${line.mt}px`,
-                        }}
-                      />
-                    ))}
-                  </div>
-                ) : (
-                  <div
-                    style={{
-                      flex: 1,
+                      background: "rgba(244, 71, 71, 0.2)",
+                      color: "#f44747",
+                      border: "1px solid rgba(244, 71, 71, 0.5)",
+                      padding: "4px 8px",
+                      borderRadius: "3px",
+                      fontSize: "12px",
+                      cursor: "pointer",
                       display: "flex",
-                      flexDirection: "column",
-                      animation: "fadeIn 0.4s ease-out forwards",
+                      alignItems: "center",
+                      gap: "4px",
                     }}
                   >
-                    <Editor
-                      value={code}
-                      onValueChange={setCode}
-                      highlight={(src) =>
-                        Prism.highlight(
-                          src,
-                          Prism.languages[language] || Prism.languages.c,
-                          language,
-                        )
-                      }
-                      padding={20}
-                      className={editorStyles}
-                    />
-                  </div>
+                    <span style={{ fontSize: "14px" }}>⟳</span> Retry
+                    Translation
+                  </button>
                 )}
+                <select
+                  value={language}
+                  onChange={handleLanguageChange}
+                  style={{
+                    background: "#2d2d2d",
+                    color: "#cccccc",
+                    border: "1px solid #444",
+                    padding: "4px 8px",
+                    borderRadius: "3px",
+                    outline: "none",
+                    fontSize: "12px",
+                    fontFamily: '"Consolas", "Courier New", monospace',
+                  }}
+                >
+                  <option value="c">C</option>
+                  <option value="cpp">C++</option>
+                  <option value="python">Python</option>
+                  <option value="javascript">JavaScript</option>
+                </select>
+                <button
+                  className={runButtonStyles}
+                  onClick={onRun}
+                  disabled={loading}
+                  style={{ opacity: loading ? 0.5 : 1 }}
+                >
+                  {loading ? "⚙️ Running..." : "▶ Run Code"}
+                </button>
               </div>
             </div>
 
-            {/* Drag resizer */}
-            <div
-              className={
-                layoutMode === "split" ? resizerStylesRow : resizerStylesCol
-              }
-              onMouseDown={() => setIsDragging(true)}
-            />
-
-            {/* Terminal pane */}
+            {/* Split container */}
             <div
               className={
                 layoutMode === "split"
-                  ? terminalPanelSideStyles
-                  : terminalPanelBottomStyles
+                  ? splitContainerRowStyles
+                  : splitContainerColStyles
               }
-              style={{
-                flex: `0 0 ${terminalSize}px`,
-                [layoutMode === "split" ? "width" : "height"]:
-                  `${terminalSize}px`,
-              }}
+              style={{ userSelect: isDragging ? "none" : "auto" }}
             >
-              <div className={terminalHeaderStyles}>
-                <div className={terminalTabStyles}>Terminal</div>
-                <div
-                  style={{
-                    marginLeft: "auto",
-                    display: "flex",
-                    gap: "8px",
-                    alignItems: "center",
-                  }}
-                >
-                  <div
-                    onClick={clearTerminal}
-                    style={{
-                      cursor: "pointer",
-                      color: "#888",
-                      display: "flex",
-                      alignItems: "center",
-                    }}
-                  >
-                    <svg
-                      width="16"
-                      height="16"
-                      viewBox="0 0 16 16"
-                      fill="currentColor"
+              {/* Editor pane */}
+              <div className={editorContainerStyles} ref={editorContainerRef}>
+                <div className={editorWrapperStyles}>
+                  {/* Line numbers */}
+                  <div className={lineNumbersStyles} style={{ zIndex: 2 }}>
+                    {lines.map((n) => (
+                      <div
+                        key={n}
+                        title={
+                          highlightedError?.line === n
+                            ? highlightedError.message
+                            : undefined
+                        }
+                        style={{
+                          color:
+                            highlightedError?.line === n
+                              ? "#f44747"
+                              : "#858585",
+                          cursor:
+                            highlightedError?.line === n ? "help" : "default",
+                        }}
+                      >
+                        {n}
+                      </div>
+                    ))}
+                  </div>
+
+                  {/* Error highlight overlay */}
+                  {highlightedError !== null && (
+                    <div
+                      style={{
+                        position: "absolute",
+                        top: 20 + (highlightedError.line - 1) * LINE_HEIGHT_PX,
+                        left: 0,
+                        right: 0,
+                        height: LINE_HEIGHT_PX,
+                        backgroundColor: "rgba(244, 71, 71, 0.2)",
+                        pointerEvents: "none",
+                        zIndex: 1,
+                      }}
+                    />
+                  )}
+
+                  {/* Skeleton loader or editor */}
+                  {translating ? (
+                    <div className={skeletonContainerStyles}>
+                      {SKELETON_LINES.map((line, i) => (
+                        <div
+                          key={i}
+                          className={skeletonLineStyles}
+                          style={{
+                            width: line.w,
+                            marginLeft: `${line.indent}px`,
+                            marginTop: `${line.mt}px`,
+                          }}
+                        />
+                      ))}
+                    </div>
+                  ) : (
+                    <div
+                      style={{
+                        flex: 1,
+                        display: "flex",
+                        flexDirection: "column",
+                        animation: "fadeIn 0.4s ease-out forwards",
+                      }}
                     >
-                      <title>Clear Terminal</title>
-                      <path d="M2.5 1a1 1 0 0 0-1 1v1a1 1 0 0 0 1 1H3v9a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2V4h.5a1 1 0 0 0 1-1V2a1 1 0 0 0-1-1H10a1 1 0 0 0-1-1H7a1 1 0 0 0-1 1H2.5zm3 4a.5.5 0 0 1 .5.5v7a.5.5 0 0 1-1 0v-7a.5.5 0 0 1 .5-.5zM8 5a.5.5 0 0 1 .5.5v7a.5.5 0 0 1-1 0v-7A.5.5 0 0 1 8 5zm3 .5v7a.5.5 0 0 1-1 0v-7a.5.5 0 0 1 1 0z" />
-                    </svg>
-                  </div>
-                  <div
-                    onClick={() =>
-                      setLayoutMode((prev) =>
-                        prev === "split" ? "bottom" : "split",
-                      )
-                    }
-                    style={{
-                      cursor: "pointer",
-                      fontSize: "11px",
-                      color: "#888",
-                      textTransform: "uppercase",
-                      display: "flex",
-                      alignItems: "center",
-                    }}
-                  >
-                    {layoutMode === "split" ? (
-                      <svg
-                        width="16"
-                        height="16"
-                        viewBox="0 0 16 16"
-                        fill="currentColor"
-                      >
-                        <title>Move to Bottom</title>
-                        <path
-                          fillRule="evenodd"
-                          clipRule="evenodd"
-                          d="M14 2H2V14H14V2ZM1 2C1 1.44772 1.44772 1 2 1H14C14.5523 1 15 1.44772 15 2V14C15 14.5523 14.5523 15 14 15H2C1.44772 15 1 14.5523 1 14V2ZM2 10H14V14H2V10Z"
-                        />
-                      </svg>
-                    ) : (
-                      <svg
-                        width="16"
-                        height="16"
-                        viewBox="0 0 16 16"
-                        fill="currentColor"
-                      >
-                        <title>Move to Right</title>
-                        <path
-                          fillRule="evenodd"
-                          clipRule="evenodd"
-                          d="M14 2H2V14H14V2ZM1 2C1 1.44772 1.44772 1 2 1H14C14.5523 1 15 1.44772 15 2V14C15 14.5523 14.5523 15 14 15H2C1.44772 15 1 14.5523 1 14V2ZM10 2H14V14H10V2Z"
-                        />
-                      </svg>
-                    )}
-                  </div>
+                      <Editor
+                        value={code}
+                        onValueChange={setCode}
+                        highlight={(src) =>
+                          Prism.highlight(
+                            src,
+                            Prism.languages[language] || Prism.languages.c,
+                            language,
+                          )
+                        }
+                        padding={20}
+                        className={editorStyles}
+                      />
+                    </div>
+                  )}
                 </div>
               </div>
 
-              {/* Terminal output */}
-              <pre className={terminalContentStyles} ref={terminalRef}>
-                {output.split("\n").map((line, idx) => {
-                  let color = "#cccccc";
-                  const isClickable =
-                    line.match(/main\.(c|cpp|py|js):(\d+)/) ||
-                    line.match(/main\.py", line (\d+)/) ||
-                    line.match(/main\.js:(\d+)/);
-
-                  if (line.startsWith("> ")) color = "#0075d4ff";
-                  else if (
-                    line.startsWith("[Error]") ||
-                    line.startsWith("[System Error]")
-                  )
-                    color = "#f44747";
-                  else if (line.startsWith("[Done]")) color = "#007910ff";
-                  else if (
-                    line.startsWith("Welcome to") ||
-                    line.startsWith("Waiting for")
-                  )
-                    color = "#ebb222ff";
-
-                  return (
-                    <div
-                      key={idx}
-                      style={{
-                        color,
-                        minHeight: "1em",
-                        cursor: isClickable ? "pointer" : "text",
-                        textDecoration: isClickable ? "underline" : "none",
-                      }}
-                      onClick={() => isClickable && handleLineClick(line)}
-                    >
-                      {line}
-                    </div>
-                  );
-                })}
-              </pre>
-
-              {/* AI Prompt input */}
-              <textarea
-                ref={promptRef}
-                className={inputAreaStyles}
-                placeholder="Describe the code you want... (Enter to generate)"
-                defaultValue=""
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" && !e.shiftKey) {
-                    e.preventDefault();
-                    generateFromPrompt(promptRef.current?.value);
-                  }
-                }}
+              {/* Drag resizer */}
+              <div
+                className={
+                  layoutMode === "split" ? resizerStylesRow : resizerStylesCol
+                }
+                onMouseDown={() => setIsDragging(true)}
               />
+
+              {/* Terminal pane */}
+              <div
+                className={
+                  layoutMode === "split"
+                    ? terminalPanelSideStyles
+                    : terminalPanelBottomStyles
+                }
+                style={{
+                  flex: `0 0 ${terminalSize}px`,
+                  [layoutMode === "split" ? "width" : "height"]:
+                    `${terminalSize}px`,
+                }}
+              >
+                <div className={terminalHeaderStyles}>
+                  <div className={terminalTabStyles}>Terminal</div>
+                  <div
+                    style={{
+                      marginLeft: "auto",
+                      display: "flex",
+                      gap: "8px",
+                      alignItems: "center",
+                    }}
+                  >
+                    <div
+                      onClick={clearTerminal}
+                      style={{
+                        cursor: "pointer",
+                        color: "#888",
+                        display: "flex",
+                        alignItems: "center",
+                      }}
+                    >
+                      <svg
+                        width="16"
+                        height="16"
+                        viewBox="0 0 16 16"
+                        fill="currentColor"
+                      >
+                        <title>Clear Terminal</title>
+                        <path d="M2.5 1a1 1 0 0 0-1 1v1a1 1 0 0 0 1 1H3v9a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2V4h.5a1 1 0 0 0 1-1V2a1 1 0 0 0-1-1H10a1 1 0 0 0-1-1H7a1 1 0 0 0-1 1H2.5zm3 4a.5.5 0 0 1 .5.5v7a.5.5 0 0 1-1 0v-7a.5.5 0 0 1 .5-.5zM8 5a.5.5 0 0 1 .5.5v7a.5.5 0 0 1-1 0v-7A.5.5 0 0 1 8 5zm3 .5v7a.5.5 0 0 1-1 0v-7a.5.5 0 0 1 1 0z" />
+                      </svg>
+                    </div>
+                    <div
+                      onClick={() =>
+                        setLayoutMode((prev) =>
+                          prev === "split" ? "bottom" : "split",
+                        )
+                      }
+                      style={{
+                        cursor: "pointer",
+                        fontSize: "11px",
+                        color: "#888",
+                        textTransform: "uppercase",
+                        display: "flex",
+                        alignItems: "center",
+                      }}
+                    >
+                      {layoutMode === "split" ? (
+                        <svg
+                          width="16"
+                          height="16"
+                          viewBox="0 0 16 16"
+                          fill="currentColor"
+                        >
+                          <title>Move to Bottom</title>
+                          <path
+                            fillRule="evenodd"
+                            clipRule="evenodd"
+                            d="M14 2H2V14H14V2ZM1 2C1 1.44772 1.44772 1 2 1H14C14.5523 1 15 1.44772 15 2V14C15 14.5523 14.5523 15 14 15H2C1.44772 15 1 14.5523 1 14V2ZM2 10H14V14H2V10Z"
+                          />
+                        </svg>
+                      ) : (
+                        <svg
+                          width="16"
+                          height="16"
+                          viewBox="0 0 16 16"
+                          fill="currentColor"
+                        >
+                          <title>Move to Right</title>
+                          <path
+                            fillRule="evenodd"
+                            clipRule="evenodd"
+                            d="M14 2H2V14H14V2ZM1 2C1 1.44772 1.44772 1 2 1H14C14.5523 1 15 1.44772 15 2V14C15 14.5523 14.5523 15 14 15H2C1.44772 15 1 14.5523 1 14V2ZM10 2H14V14H10V2Z"
+                          />
+                        </svg>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Terminal output */}
+                <pre className={terminalContentStyles} ref={terminalRef}>
+                  {output.split("\n").map((line, idx) => {
+                    let color = "#cccccc";
+                    const isClickable =
+                      line.match(/main\.(c|cpp|py|js):(\d+)/) ||
+                      line.match(/main\.py", line (\d+)/) ||
+                      line.match(/main\.js:(\d+)/);
+
+                    if (line.startsWith("> ")) color = "#0075d4ff";
+                    else if (
+                      line.startsWith("[Error]") ||
+                      line.startsWith("[System Error]")
+                    )
+                      color = "#f44747";
+                    else if (line.startsWith("[Done]")) color = "#007910ff";
+                    else if (
+                      line.startsWith("Welcome to") ||
+                      line.startsWith("Waiting for")
+                    )
+                      color = "#ebb222ff";
+
+                    return (
+                      <div
+                        key={idx}
+                        style={{
+                          color,
+                          minHeight: "1em",
+                          cursor: isClickable ? "pointer" : "text",
+                          textDecoration: isClickable ? "underline" : "none",
+                        }}
+                        onClick={() => isClickable && handleLineClick(line)}
+                      >
+                        {line}
+                      </div>
+                    );
+                  })}
+                </pre>
+
+                {/* AI Prompt input */}
+                <textarea
+                  ref={promptRef}
+                  className={inputAreaStyles}
+                  placeholder="Describe the code you want... (Enter to generate)"
+                  defaultValue=""
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && !e.shiftKey) {
+                      e.preventDefault();
+                      generateFromPrompt(promptRef.current?.value);
+                    }
+                  }}
+                />
+              </div>
             </div>
           </div>
         </div>
-      </div>
 
-      {/* Status bar */}
-      <div className={statusBarStyles}>
-        <div style={{ display: "flex", gap: "15px", alignItems: "center" }}>
-          <span>{getFileName(language)}</span>
-        </div>
-        <div>
-          <span>UTF-8</span>&nbsp;&nbsp;
-          <span>{loading ? "Busy..." : "Ready"}</span>&nbsp;&nbsp;
-          <span>{getFileIcon(language)}</span>
+        {/* Status bar */}
+        <div className={statusBarStyles}>
+          <div style={{ display: "flex", gap: "15px", alignItems: "center" }}>
+            <span>{getFileName(language)}</span>
+          </div>
+          <div>
+            <span>UTF-8</span>&nbsp;&nbsp;
+            <span>{loading ? "Busy..." : "Ready"}</span>&nbsp;&nbsp;
+            <span>{getFileIcon(language)}</span>
+          </div>
         </div>
       </div>
-    </div>
+    </>
   );
 };
 
