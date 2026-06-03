@@ -145,13 +145,15 @@ const App = () => {
   /** ── State ───────────────────────────────────────────────────────────────────────── */
 
   const [codes, setCodes] = useState(() => {
-    const saved = localStorage.getItem("codes_v4");
+    const saved = localStorage.getItem("codes");
     return saved
       ? JSON.parse(saved)
       : { c: DEFAULT_C_CODE, cpp: "", python: "", javascript: "" };
   });
 
-  const [output, setOutput] = useState("Welcome to React use terminal.");
+  const [output, setOutput] = useState(
+    "MKX Compiler System Online. Ready for execution.",
+  );
 
   const [loading, setLoading] = useState(false);
 
@@ -467,7 +469,7 @@ const App = () => {
   };
 
   const clearTerminal = () => {
-    setOutput("Welcome to React use terminal.");
+    setOutput("MKX Compiler System Online. Ready for execution.");
     setHighlightedError(null);
   };
 
@@ -680,16 +682,25 @@ const App = () => {
                     alignItems: "center",
                   }}
                 >
-                  <svg
-                    width="12"
-                    height="12"
-                    viewBox="0 0 16 16"
-                    fill="currentColor"
+                  <div
                     onClick={clearTerminal}
-                    className="cursor-pointer"
+                    style={{
+                      cursor: "pointer",
+                      color: "#888",
+                      display: "flex",
+                      alignItems: "center",
+                    }}
                   >
-                    <path d="M2.5 1a1 1 0 0 0-1 1v1a1 1 0 0 0 1 1H3v9a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2V4h.5a1 1 0 0 0 1-1V2a1 1 0 0 0-1-1H10a1 1 0 0 0-1-1H7a1 1 0 0 0-1 1H2.5zm3 4a.5.5 0 0 1 .5.5v7a.5.5 0 0 1-1 0v-7a.5.5 0 0 1 .5-.5zM8 5a.5.5 0 0 1 .5.5v7a.5.5 0 0 1-1 0v-7A.5.5 0 0 1 8 5zm3 .5v7a.5.5 0 0 1-1 0v-7a.5.5 0 0 1 1 0z" />
-                  </svg>
+                    <svg
+                      width="16"
+                      height="16"
+                      viewBox="0 0 16 16"
+                      fill="currentColor"
+                    >
+                      <title>Clear Terminal</title>
+                      <path d="M2.5 1a1 1 0 0 0-1 1v1a1 1 0 0 0 1 1H3v9a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2V4h.5a1 1 0 0 0 1-1V2a1 1 0 0 0-1-1H10a1 1 0 0 0-1-1H7a1 1 0 0 0-1 1H2.5zm3 4a.5.5 0 0 1 .5.5v7a.5.5 0 0 1-1 0v-7a.5.5 0 0 1 .5-.5zM8 5a.5.5 0 0 1 .5.5v7a.5.5 0 0 1-1 0v-7A.5.5 0 0 1 8 5zm3 .5v7a.5.5 0 0 1-1 0v-7a.5.5 0 0 1 1 0z" />
+                    </svg>
+                  </div>
                   <div
                     onClick={() =>
                       setLayoutMode((prev) =>
@@ -701,6 +712,8 @@ const App = () => {
                       fontSize: "11px",
                       color: "#888",
                       textTransform: "uppercase",
+                      display: "flex",
+                      alignItems: "center",
                     }}
                   >
                     {layoutMode === "split" ? (
