@@ -15,11 +15,14 @@ const IS_WIN = os.platform() === "win32";
 app.use(
   express.static("dist", {
     setHeaders: (res) => {
-      res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
+      res.setHeader(
+        "Cache-Control",
+        "no-store, no-cache, must-revalidate, proxy-revalidate",
+      );
       res.setHeader("Pragma", "no-cache");
       res.setHeader("Expires", "0");
     },
-  })
+  }),
 );
 app.use(express.json());
 
@@ -29,7 +32,7 @@ const ZIG_PATH = path.resolve(
   __dirname,
   IS_WIN
     ? `node_modules/@oven/zig-win32-${os.arch() === "x64" ? "x64" : "x86"}/zig.exe`
-    : "node_modules/@oven/zig/zig"
+    : "node_modules/@oven/zig/zig",
 );
 
 const GEMINI_MODEL = "gemini-flash-lite-latest";
@@ -44,7 +47,9 @@ if (!IS_WIN) {
     fs.chmodSync(ZIG_PATH, 0o755);
     console.log("Zig binary marked executable.");
   } catch {
-    console.warn("Warning: Could not chmod zig binary — C/C++ compilation may fail.");
+    console.warn(
+      "Warning: Could not chmod zig binary — C/C++ compilation may fail.",
+    );
   }
 }
 
@@ -59,7 +64,12 @@ if (!IS_WIN) {
  * @param {number} [timeoutMs=5000] - Kill timeout in milliseconds.
  * @returns {Promise<{ code: number, stdout: string, stderr: string }>}
  */
-function spawnProcess(command, args, inputString = "", timeoutMs = RUN_TIMEOUT_MS) {
+function spawnProcess(
+  command,
+  args,
+  inputString = "",
+  timeoutMs = RUN_TIMEOUT_MS,
+) {
   return new Promise((resolve) => {
     const proc = childProcess.spawn(command, args, { shell: IS_WIN });
     const stdoutChunks = [];
@@ -94,7 +104,8 @@ function spawnProcess(command, args, inputString = "", timeoutMs = RUN_TIMEOUT_M
       settle({
         code: -1,
         stdout: Buffer.concat(stdoutChunks).toString(),
-        stderr: Buffer.concat(stderrChunks).toString() + `\nError: ${err.message}`,
+        stderr:
+          Buffer.concat(stderrChunks).toString() + `\nError: ${err.message}`,
       });
     });
 
@@ -149,14 +160,14 @@ async function runCode(language, code, input) {
         compiler,
         [srcFile, "-o", outFile],
         "",
-        COMPILE_TIMEOUT_MS
+        COMPILE_TIMEOUT_MS,
       );
     } else {
       compileResult = await spawnProcess(
         ZIG_PATH,
         [isCpp ? "c++" : "cc", srcFile, "-o", outFile],
         "",
-        COMPILE_TIMEOUT_MS
+        COMPILE_TIMEOUT_MS,
       );
     }
     if (compileResult.code !== 0) return compileResult;
@@ -167,7 +178,12 @@ async function runCode(language, code, input) {
   if (language === "python") {
     const srcFile = path.join(dir, "main.py");
     await fsPromises.writeFile(srcFile, source);
-    return spawnProcess(IS_WIN ? "python" : "python3", [srcFile], input, RUN_TIMEOUT_MS);
+    return spawnProcess(
+      IS_WIN ? "python" : "python3",
+      [srcFile],
+      input,
+      RUN_TIMEOUT_MS,
+    );
   }
 
   if (language === "javascript") {
@@ -180,6 +196,10 @@ async function runCode(language, code, input) {
 }
 
 /** ─── Routes ──────────────────────────────────────────────────────────────── */
+
+app.get("/health", (req, res) => {
+  res.send("OK");
+});
 
 /**
  * POST /mkx/v1/execute
@@ -214,7 +234,8 @@ app.post("/mkx/v1/translate", async (req, res) => {
       `Just return the pure code.`;
 
     if (targetLanguage === "javascript") {
-      prompt += ` For JavaScript, ensure the code runs in Node.js environment. ` +
+      prompt +=
+        ` For JavaScript, ensure the code runs in Node.js environment. ` +
         `Do NOT use browser-specific functions like prompt(), alert(), or confirm(). ` +
         `Instead, read input from process.stdin or use command-line arguments. ` +
         `Use console.log() for output.`;
@@ -257,7 +278,8 @@ app.post("/mkx/v1/generate", async (req, res) => {
       `Just return the pure, runnable code with no explanation.`;
 
     if (language === "javascript") {
-      fullPrompt += ` For JavaScript, ensure the code runs in Node.js environment. ` +
+      fullPrompt +=
+        ` For JavaScript, ensure the code runs in Node.js environment. ` +
         `Do NOT use browser-specific functions like prompt(), alert(), or confirm(). ` +
         `Instead, read input from process.stdin or use command-line arguments. ` +
         `Use console.log() for output.`;
@@ -275,6 +297,14 @@ app.post("/mkx/v1/generate", async (req, res) => {
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
+});
+
+/**
+ * GET *
+ * Serves the React frontend for any unmatched route.
+ */
+app.get("*", (req, res) => {
+  res.sendFile(path.resolve(__dirname, "dist", "index.html"));
 });
 
 /** ─── Start ───────────────────────────────────────────────────────────────── */
