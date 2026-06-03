@@ -154,8 +154,10 @@ async function runCode(language, code, input) {
     await fsPromises.writeFile(srcFile, source);
 
     let compileResult;
-    if (os.platform() === "darwin") {
-      const compiler = isCpp ? "clang++" : "clang";
+    if (!IS_WIN) {
+      // Use native compilers (g++/gcc or clang++/clang on macOS) for Unix environments
+      // This avoids Zig cache permission hangs inside Docker containers
+      const compiler = isCpp ? "g++" : "gcc";
       compileResult = await spawnProcess(
         compiler,
         [srcFile, "-o", outFile],
@@ -163,6 +165,7 @@ async function runCode(language, code, input) {
         COMPILE_TIMEOUT_MS,
       );
     } else {
+      // On Windows, use the bundled Zig compiler
       compileResult = await spawnProcess(
         ZIG_PATH,
         [isCpp ? "c++" : "cc", srcFile, "-o", outFile],

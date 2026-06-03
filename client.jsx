@@ -136,7 +136,7 @@ const getFileIcon = (lang) =>
 /** @param {string} lang */
 const getFileName = (lang) =>
   ({ c: "main.c", cpp: "main.cpp", python: "main.py", javascript: "main.js" })[
-  lang
+    lang
   ] ?? "main.c";
 
 /** ─── App ──────────────────────────────────────────────────────────────────────────── */
@@ -151,9 +151,7 @@ const App = () => {
       : { c: DEFAULT_C_CODE, cpp: "", python: "", javascript: "" };
   });
 
-  const [output, setOutput] = useState(
-    "Welcome to React use terminal.",
-  );
+  const [output, setOutput] = useState("Welcome to React use terminal.");
 
   const [loading, setLoading] = useState(false);
 
@@ -674,33 +672,24 @@ const App = () => {
             >
               <div className={terminalHeaderStyles}>
                 <div className={terminalTabStyles}>Terminal</div>
-                <div style={{ marginLeft: "auto", display: "flex", gap: "8px", alignItems: "center" }}>
-                  <button
+                <div
+                  style={{
+                    marginLeft: "auto",
+                    display: "flex",
+                    gap: "8px",
+                    alignItems: "center",
+                  }}
+                >
+                  <svg
+                    width="12"
+                    height="12"
+                    viewBox="0 0 16 16"
+                    fill="currentColor"
                     onClick={clearTerminal}
-                    style={{
-                      background: "transparent",
-                      color: "#cccccc",
-                      border: "1px solid #444",
-                      padding: "4px 8px",
-                      borderRadius: "3px",
-                      fontSize: "11px",
-                      cursor: "pointer",
-                      display: "flex",
-                      alignItems: "center",
-                      gap: "4px",
-                    }}
-                    title="Clear terminal"
+                    className="cursor-pointer"
                   >
-                    <svg
-                      width="12"
-                      height="12"
-                      viewBox="0 0 16 16"
-                      fill="currentColor"
-                    >
-                      <path d="M2.5 1a1 1 0 0 0-1 1v1a1 1 0 0 0 1 1H3v9a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2V4h.5a1 1 0 0 0 1-1V2a1 1 0 0 0-1-1H10a1 1 0 0 0-1-1H7a1 1 0 0 0-1 1H2.5zm3 4a.5.5 0 0 1 .5.5v7a.5.5 0 0 1-1 0v-7a.5.5 0 0 1 .5-.5zM8 5a.5.5 0 0 1 .5.5v7a.5.5 0 0 1-1 0v-7A.5.5 0 0 1 8 5zm3 .5v7a.5.5 0 0 1-1 0v-7a.5.5 0 0 1 1 0z" />
-                    </svg>
-                    Clear
-                  </button>
+                    <path d="M2.5 1a1 1 0 0 0-1 1v1a1 1 0 0 0 1 1H3v9a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2V4h.5a1 1 0 0 0 1-1V2a1 1 0 0 0-1-1H10a1 1 0 0 0-1-1H7a1 1 0 0 0-1 1H2.5zm3 4a.5.5 0 0 1 .5.5v7a.5.5 0 0 1-1 0v-7a.5.5 0 0 1 .5-.5zM8 5a.5.5 0 0 1 .5.5v7a.5.5 0 0 1-1 0v-7A.5.5 0 0 1 8 5zm3 .5v7a.5.5 0 0 1-1 0v-7a.5.5 0 0 1 1 0z" />
+                  </svg>
                   <div
                     onClick={() =>
                       setLayoutMode((prev) =>

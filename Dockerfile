@@ -1,7 +1,7 @@
 FROM node:20-bullseye
 
-# Install python3 since it is needed for running python code
-RUN apt-get update && apt-get install -y python3
+# Install python3, gcc, and g++ for native code execution/compilation
+RUN apt-get update && apt-get install -y python3 gcc g++
 
 WORKDIR /app
 
