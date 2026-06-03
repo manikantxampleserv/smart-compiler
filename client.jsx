@@ -679,7 +679,7 @@ const App = () => {
                     onClick={clearTerminal}
                     style={{
                       background: "transparent",
-                      color: "#888",
+                      color: "#cccccc",
                       border: "1px solid #444",
                       padding: "4px 8px",
                       borderRadius: "3px",
