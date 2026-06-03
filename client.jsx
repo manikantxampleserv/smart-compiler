@@ -136,7 +136,7 @@ const getFileIcon = (lang) =>
 /** @param {string} lang */
 const getFileName = (lang) =>
   ({ c: "main.c", cpp: "main.cpp", python: "main.py", javascript: "main.js" })[
-    lang
+  lang
   ] ?? "main.c";
 
 /** ─── App ──────────────────────────────────────────────────────────────────────────── */
@@ -152,7 +152,7 @@ const App = () => {
   });
 
   const [output, setOutput] = useState(
-    "Welcome to React use C terminal.\nWaiting for execution...",
+    "Welcome to React use terminal.",
   );
 
   const [loading, setLoading] = useState(false);
@@ -196,7 +196,7 @@ const App = () => {
   /** ── Persistence Effects ────────────────────────────────────────────────────────── */
 
   useEffect(() => {
-    localStorage.setItem("codes_v4", JSON.stringify(codes));
+    localStorage.setItem("codes", JSON.stringify(codes));
   }, [codes]);
 
   useEffect(() => {
@@ -468,6 +468,11 @@ const App = () => {
     setLoading(false);
   };
 
+  const clearTerminal = () => {
+    setOutput("Welcome to React use terminal.");
+    setHighlightedError(null);
+  };
+
   /** ── Render ────────────────────────────────────────────────────────────────────────── */
 
   return (
@@ -669,49 +674,76 @@ const App = () => {
             >
               <div className={terminalHeaderStyles}>
                 <div className={terminalTabStyles}>Terminal</div>
-                <div
-                  onClick={() =>
-                    setLayoutMode((prev) =>
-                      prev === "split" ? "bottom" : "split",
-                    )
-                  }
-                  style={{
-                    marginLeft: "auto",
-                    cursor: "pointer",
-                    fontSize: "11px",
-                    color: "#888",
-                    textTransform: "uppercase",
-                  }}
-                >
-                  {layoutMode === "split" ? (
+                <div style={{ marginLeft: "auto", display: "flex", gap: "8px", alignItems: "center" }}>
+                  <button
+                    onClick={clearTerminal}
+                    style={{
+                      background: "transparent",
+                      color: "#888",
+                      border: "1px solid #444",
+                      padding: "4px 8px",
+                      borderRadius: "3px",
+                      fontSize: "11px",
+                      cursor: "pointer",
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "4px",
+                    }}
+                    title="Clear terminal"
+                  >
                     <svg
-                      width="16"
-                      height="16"
+                      width="12"
+                      height="12"
                       viewBox="0 0 16 16"
                       fill="currentColor"
                     >
-                      <title>Move to Bottom</title>
-                      <path
-                        fillRule="evenodd"
-                        clipRule="evenodd"
-                        d="M14 2H2V14H14V2ZM1 2C1 1.44772 1.44772 1 2 1H14C14.5523 1 15 1.44772 15 2V14C15 14.5523 14.5523 15 14 15H2C1.44772 15 1 14.5523 1 14V2ZM2 10H14V14H2V10Z"
-                      />
+                      <path d="M2.5 1a1 1 0 0 0-1 1v1a1 1 0 0 0 1 1H3v9a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2V4h.5a1 1 0 0 0 1-1V2a1 1 0 0 0-1-1H10a1 1 0 0 0-1-1H7a1 1 0 0 0-1 1H2.5zm3 4a.5.5 0 0 1 .5.5v7a.5.5 0 0 1-1 0v-7a.5.5 0 0 1 .5-.5zM8 5a.5.5 0 0 1 .5.5v7a.5.5 0 0 1-1 0v-7A.5.5 0 0 1 8 5zm3 .5v7a.5.5 0 0 1-1 0v-7a.5.5 0 0 1 1 0z" />
                     </svg>
-                  ) : (
-                    <svg
-                      width="16"
-                      height="16"
-                      viewBox="0 0 16 16"
-                      fill="currentColor"
-                    >
-                      <title>Move to Right</title>
-                      <path
-                        fillRule="evenodd"
-                        clipRule="evenodd"
-                        d="M14 2H2V14H14V2ZM1 2C1 1.44772 1.44772 1 2 1H14C14.5523 1 15 1.44772 15 2V14C15 14.5523 14.5523 15 14 15H2C1.44772 15 1 14.5523 1 14V2ZM10 2H14V14H10V2Z"
-                      />
-                    </svg>
-                  )}
+                    Clear
+                  </button>
+                  <div
+                    onClick={() =>
+                      setLayoutMode((prev) =>
+                        prev === "split" ? "bottom" : "split",
+                      )
+                    }
+                    style={{
+                      cursor: "pointer",
+                      fontSize: "11px",
+                      color: "#888",
+                      textTransform: "uppercase",
+                    }}
+                  >
+                    {layoutMode === "split" ? (
+                      <svg
+                        width="16"
+                        height="16"
+                        viewBox="0 0 16 16"
+                        fill="currentColor"
+                      >
+                        <title>Move to Bottom</title>
+                        <path
+                          fillRule="evenodd"
+                          clipRule="evenodd"
+                          d="M14 2H2V14H14V2ZM1 2C1 1.44772 1.44772 1 2 1H14C14.5523 1 15 1.44772 15 2V14C15 14.5523 14.5523 15 14 15H2C1.44772 15 1 14.5523 1 14V2ZM2 10H14V14H2V10Z"
+                        />
+                      </svg>
+                    ) : (
+                      <svg
+                        width="16"
+                        height="16"
+                        viewBox="0 0 16 16"
+                        fill="currentColor"
+                      >
+                        <title>Move to Right</title>
+                        <path
+                          fillRule="evenodd"
+                          clipRule="evenodd"
+                          d="M14 2H2V14H14V2ZM1 2C1 1.44772 1.44772 1 2 1H14C14.5523 1 15 1.44772 15 2V14C15 14.5523 14.5523 15 14 15H2C1.44772 15 1 14.5523 1 14V2ZM10 2H14V14H10V2Z"
+                        />
+                      </svg>
+                    )}
+                  </div>
                 </div>
               </div>
 
