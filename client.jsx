@@ -7,27 +7,41 @@ import React, { useEffect, useRef, useState } from "react";
 import ReactDOM from "react-dom";
 import Editor from "react-simple-code-editor";
 import {
+  editorAnimatedContainerStyles,
   editorContainerStyles,
   editorStyles,
   editorWrapperStyles,
+  errorHighlightOverlayStyles,
   fileIconStyles,
-  fileItemStyles,
   inputAreaStyles,
+  languageSelectStyles,
   layoutStyles,
   lineNumbersStyles,
   mainAreaStyles,
+  modalBodyStyles,
+  modalBtnCancelStyles,
+  modalBtnSubmitStyles,
+  modalContainerStyles,
+  modalFieldsContainerStyles,
+  modalFieldStyles,
+  modalFooterStyles,
+  modalHeaderStyles,
+  modalInputStyles,
+  modalLabelStyles,
+  modalMessageStyles,
+  modalOverlayStyles,
   resizerStylesCol,
   resizerStylesRow,
+  retryTranslationBtnStyles,
   runButtonStyles,
-  sidebarHeaderStyles,
-  sidebarStyles,
   skeletonContainerStyles,
   skeletonLineStyles,
   splitContainerColStyles,
   splitContainerRowStyles,
   statusBarStyles,
-  tabStyles,
+  tabsBarActionsStyles,
   tabsBarStyles,
+  tabStyles,
   terminalContentStyles,
   terminalHeaderStyles,
   terminalPanelBottomStyles,
@@ -142,6 +156,11 @@ const getFileName = (lang) =>
 
 /** ─── App ──────────────────────────────────────────────────────────────────────────── */
 
+/**
+ * The main application component for the MKX Compiler System.
+ * Handles state for code editing, terminal output, and API interactions.
+ * @returns {JSX.Element}
+ */
 const App = () => {
   /** ── State ───────────────────────────────────────────────────────────────────────── */
 
@@ -172,18 +191,31 @@ const App = () => {
   const [language, setLanguage] = useState(
     () => localStorage.getItem("language") || "c",
   );
-  const [layoutMode, setLayoutMode] = useState(
-    () => localStorage.getItem("layoutMode") || "split",
-  );
-  const [terminalSize, setTerminalSize] = useState(
-    () => parseInt(localStorage.getItem("terminalSize")) || 400,
-  );
+  const [layoutMode, setLayoutMode] = useState(() => {
+    if (typeof window !== "undefined") {
+      return window.innerWidth < 768 ? "stacked" : "split";
+    }
+    return "split";
+  });
+
+  const [terminalSize, setTerminalSize] = useState(() => {
+    if (typeof window !== "undefined") {
+      return window.innerWidth < 768
+        ? window.innerHeight * 0.35
+        : window.innerWidth * 0.35;
+    }
+    return 400;
+  });
 
   const [translating, setTranslating] = useState(false);
   const [translationError, setTranslationError] = useState(false);
   const [lastSourceLanguage, setLastSourceLanguage] = useState(null);
   const [highlightedError, setHighlightedError] = useState(null);
   const [isDragging, setIsDragging] = useState(false);
+
+  const [theme, setTheme] = useState(
+    () => localStorage.getItem("theme") || "dark",
+  );
 
   /** ── Refs ─────────────────────────────────────────────────────────────────────────── */
 
@@ -216,12 +248,31 @@ const App = () => {
   }, [language]);
 
   useEffect(() => {
-    localStorage.setItem("layoutMode", layoutMode);
-  }, [layoutMode]);
+    localStorage.setItem("theme", theme);
+    document.documentElement.setAttribute("data-theme", theme);
+    const prismLink = document.querySelector('link[href*="prism"]');
+    if (prismLink) {
+      if (theme === "light") {
+        prismLink.href =
+          "https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism.min.css";
+      } else {
+        prismLink.href =
+          "https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css";
+      }
+    }
+  }, [theme]);
 
   useEffect(() => {
-    localStorage.setItem("terminalSize", terminalSize);
-  }, [terminalSize]);
+    const handleResize = () => {
+      if (window.innerWidth < 768) {
+        setLayoutMode("stacked");
+      } else {
+        setLayoutMode("split");
+      }
+    };
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
 
   /** ── Auto-Scroll Effects ─────────────────────────────────────────────────────────── */
 
@@ -481,6 +532,11 @@ const App = () => {
     setModalConfig({ ...modalConfig, isOpen: false, resolve: null });
   };
 
+  /**
+   * Executes the code via the backend execution endpoint.
+   * Prompts the user if input/arguments are needed based on AI analysis.
+   * @returns {Promise<void>}
+   */
   const onRun = async () => {
     let currentStdin = promptRef.current?.value ?? "";
     let currentArgsStr = cmdArgs;
@@ -488,10 +544,6 @@ const App = () => {
 
     if (!currentStdin.trim() || !currentArgsStr.trim()) {
       setLoading(true);
-      setOutput(
-        (prev) => prev + `\n\n> AI analyzing code for required inputs...`,
-      );
-
       try {
         const res = await fetch("/mkx/v1/analyze-inputs", {
           method: "POST",
@@ -506,7 +558,7 @@ const App = () => {
             expectedPromptStr =
               analysis.stdinMessage || analysis.stdinPrompt || "";
             const userInput = await requestUserInput(
-              "AI Detected Input Needed",
+              "Input Needed",
               expectedPromptStr,
               analysis.stdinFields,
             );
@@ -522,7 +574,7 @@ const App = () => {
 
           if (analysis.needsArgs && !currentArgsStr.trim()) {
             const userArgs = await requestUserInput(
-              "AI Detected Arguments Needed",
+              "Arguments Needed",
               analysis.argsMessage || analysis.argsPrompt,
               analysis.argsFields,
             );
@@ -595,91 +647,27 @@ const App = () => {
   return (
     <>
       {modalConfig.isOpen && (
-        <div
-          style={{
-            position: "fixed",
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            backgroundColor: "rgba(0, 0, 0, 0.7)",
-            display: "flex",
-            alignItems: "center",
-            justifyContent: "center",
-            zIndex: 1000,
-          }}
-        >
-          <div
-            style={{
-              backgroundColor: "#252526",
-              border: "1px solid #444",
-              borderRadius: "6px",
-              width: "400px",
-              maxWidth: "90%",
-              boxShadow: "0 4px 12px rgba(0,0,0,0.5)",
-              display: "flex",
-              flexDirection: "column",
-              overflow: "hidden",
-            }}
-          >
+        <div className={modalOverlayStyles}>
+          <div className={modalContainerStyles}>
             <div
-              style={{
-                backgroundColor: "#2d2d2d",
-                padding: "10px 15px",
-                borderBottom: "1px solid #444",
-                fontSize: "14px",
-                fontWeight: "bold",
-                color: "#e7e7e7",
-                display: "flex",
-                alignItems: "center",
-                gap: "8px",
-              }}
+              className={modalHeaderStyles}
+              style={{ display: "flex", alignItems: "center", gap: "8px" }}
             >
-              <span style={{ color: "#ebb222" }}>✨</span> {modalConfig.title}
+              {modalConfig.title}
             </div>
-            <div
-              style={{
-                padding: "15px",
-                display: "flex",
-                flexDirection: "column",
-                gap: "15px",
-              }}
-            >
-              <div
-                style={{
-                  fontSize: "13px",
-                  color: "#cccccc",
-                  lineHeight: "1.4",
-                }}
-              >
-                {modalConfig.message}
-              </div>
-              <div
-                style={{
-                  display: "flex",
-                  flexDirection: "column",
-                  gap: "10px",
-                  maxHeight: "40vh",
-                  overflowY: "auto",
-                  paddingRight: "5px",
-                }}
-              >
+            <div className={modalBodyStyles}>
+              <div className={modalMessageStyles}>{modalConfig.message}</div>
+              <div className={modalFieldsContainerStyles}>
                 {modalConfig.fields.map((f, idx) => (
-                  <div
-                    key={idx}
-                    style={{
-                      display: "flex",
-                      flexDirection: "column",
-                      gap: "5px",
-                    }}
-                  >
-                    <label style={{ fontSize: "12px", color: "#a5a5a5" }}>
+                  <div key={idx} className={modalFieldStyles}>
+                    <label className={modalLabelStyles}>
                       <strong style={{ color: "#e7e7e7" }}>{f.name}</strong> -{" "}
                       {f.description}
                     </label>
                     <input
                       autoFocus={idx === 0}
                       type="text"
+                      className={modalInputStyles}
                       value={modalConfig.inputValues[idx] || ""}
                       onChange={(e) => {
                         const newVals = [...modalConfig.inputValues];
@@ -693,87 +681,31 @@ const App = () => {
                         if (e.key === "Enter") handleModalSubmit();
                         if (e.key === "Escape") handleModalCancel();
                       }}
-                      style={{
-                        backgroundColor: "#1e1e1e",
-                        color: "#cccccc",
-                        border: "1px solid #007acc",
-                        borderRadius: "3px",
-                        padding: "8px 10px",
-                        fontSize: "13px",
-                        fontFamily: '"Consolas", "Courier New", monospace',
-                        outline: "none",
-                      }}
                       placeholder={`Enter ${f.name}...`}
                     />
                   </div>
                 ))}
               </div>
-              <div
-                style={{
-                  display: "flex",
-                  justifyContent: "flex-end",
-                  gap: "10px",
-                  marginTop: "5px",
-                }}
+            </div>
+            <div className={modalFooterStyles}>
+              <button
+                onClick={handleModalCancel}
+                className={modalBtnCancelStyles}
               >
-                <button
-                  onClick={handleModalCancel}
-                  style={{
-                    backgroundColor: "transparent",
-                    color: "#cccccc",
-                    border: "1px solid #444",
-                    borderRadius: "3px",
-                    padding: "6px 12px",
-                    fontSize: "12px",
-                    cursor: "pointer",
-                  }}
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handleModalSubmit}
-                  style={{
-                    backgroundColor: "#007acc",
-                    color: "#ffffff",
-                    border: "none",
-                    borderRadius: "3px",
-                    padding: "6px 12px",
-                    fontSize: "12px",
-                    cursor: "pointer",
-                  }}
-                >
-                  Submit
-                </button>
-              </div>
+                Cancel
+              </button>
+              <button
+                onClick={handleModalSubmit}
+                className={modalBtnSubmitStyles}
+              >
+                Submit
+              </button>
             </div>
           </div>
         </div>
       )}
       <div className={layoutStyles}>
         <div className={topAreaStyles}>
-          {/* Sidebar */}
-          <div className={sidebarStyles}>
-            <div className={sidebarHeaderStyles}>
-              <svg
-                width="16"
-                height="16"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="#007acc"
-                strokeWidth="2.5"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <path d="M4 20L4 4L12 14L20 4L20 20" />
-              </svg>
-              MKX EDITOR
-            </div>
-            <div className={fileItemStyles}>
-              <span className={fileIconStyles}>{getFileIcon(language)}</span>
-              {getFileName(language)}
-            </div>
-          </div>
-
           {/* Main area */}
           <div className={mainAreaStyles}>
             {/* Tabs bar */}
@@ -782,24 +714,11 @@ const App = () => {
                 <span className={fileIconStyles}>{getFileIcon(language)}</span>
                 {getFileName(language)}
               </div>
-              <div
-                style={{ display: "flex", gap: "10px", alignItems: "center" }}
-              >
+              <div className={tabsBarActionsStyles}>
                 {translationError && (
                   <button
                     onClick={handleRetryTranslation}
-                    style={{
-                      background: "rgba(244, 71, 71, 0.2)",
-                      color: "#f44747",
-                      border: "1px solid rgba(244, 71, 71, 0.5)",
-                      padding: "4px 8px",
-                      borderRadius: "3px",
-                      fontSize: "12px",
-                      cursor: "pointer",
-                      display: "flex",
-                      alignItems: "center",
-                      gap: "4px",
-                    }}
+                    className={retryTranslationBtnStyles}
                   >
                     <span style={{ fontSize: "14px" }}>⟳</span> Retry
                     Translation
@@ -808,29 +727,128 @@ const App = () => {
                 <select
                   value={language}
                   onChange={handleLanguageChange}
-                  style={{
-                    background: "#2d2d2d",
-                    color: "#cccccc",
-                    border: "1px solid #444",
-                    padding: "4px 8px",
-                    borderRadius: "3px",
-                    outline: "none",
-                    fontSize: "12px",
-                    fontFamily: '"Consolas", "Courier New", monospace',
-                  }}
+                  className={languageSelectStyles}
                 >
                   <option value="c">C</option>
                   <option value="cpp">C++</option>
                   <option value="python">Python</option>
                   <option value="javascript">JavaScript</option>
                 </select>
+
                 <button
                   className={runButtonStyles}
                   onClick={onRun}
                   disabled={loading}
-                  style={{ opacity: loading ? 0.5 : 1 }}
+                  style={{
+                    opacity: loading ? 0.5 : 1,
+                    display: "flex",
+                    alignItems: "center",
+                    gap: "6px",
+                    width: "90px",
+                  }}
                 >
-                  {loading ? "⚙️ Running..." : "▶ Run Code"}
+                  {loading ? (
+                    <>
+                      <svg
+                        width="14"
+                        height="14"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        style={{ animation: "spin 2s linear infinite" }}
+                      >
+                        <line x1="12" y1="2" x2="12" y2="6"></line>
+                        <line x1="12" y1="18" x2="12" y2="22"></line>
+                        <line x1="4.93" y1="4.93" x2="7.76" y2="7.76"></line>
+                        <line
+                          x1="16.24"
+                          y1="16.24"
+                          x2="19.07"
+                          y2="19.07"
+                        ></line>
+                        <line x1="2" y1="12" x2="6" y2="12"></line>
+                        <line x1="18" y1="12" x2="22" y2="12"></line>
+                        <line x1="4.93" y1="19.07" x2="7.76" y2="16.24"></line>
+                        <line x1="16.24" y1="4.93" x2="19.07" y2="7.76"></line>
+                        <style>
+                          {
+                            "@keyframes spin { 100% { transform: rotate(360deg); } }"
+                          }
+                        </style>
+                      </svg>
+                      Running...
+                    </>
+                  ) : (
+                    <>
+                      <svg
+                        width="14"
+                        height="14"
+                        viewBox="0 0 24 24"
+                        fill="currentColor"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      >
+                        <polygon points="5 3 19 12 5 21 5 3"></polygon>
+                      </svg>
+                      Run
+                    </>
+                  )}
+                </button>
+                <button
+                  onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+                  style={{
+                    background: "none",
+                    border: "none",
+                    cursor: "pointer",
+                    fontSize: "18px",
+                    padding: "8px 4px",
+                    color: "var(--text-main)",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                  title={`Switch to ${theme === "dark" ? "light" : "dark"} mode`}
+                >
+                  {theme === "dark" ? (
+                    <svg
+                      width="18"
+                      height="18"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <circle cx="12" cy="12" r="5"></circle>
+                      <line x1="12" y1="1" x2="12" y2="3"></line>
+                      <line x1="12" y1="21" x2="12" y2="23"></line>
+                      <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line>
+                      <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line>
+                      <line x1="1" y1="12" x2="3" y2="12"></line>
+                      <line x1="21" y1="12" x2="23" y2="12"></line>
+                      <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line>
+                      <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
+                    </svg>
+                  ) : (
+                    <svg
+                      width="18"
+                      height="18"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+                    </svg>
+                  )}
                 </button>
               </div>
             </div>
@@ -874,15 +892,9 @@ const App = () => {
                   {/* Error highlight overlay */}
                   {highlightedError !== null && (
                     <div
+                      className={errorHighlightOverlayStyles}
                       style={{
-                        position: "absolute",
                         top: 20 + (highlightedError.line - 1) * LINE_HEIGHT_PX,
-                        left: 0,
-                        right: 0,
-                        height: LINE_HEIGHT_PX,
-                        backgroundColor: "rgba(244, 71, 71, 0.2)",
-                        pointerEvents: "none",
-                        zIndex: 1,
                       }}
                     />
                   )}
@@ -903,14 +915,7 @@ const App = () => {
                       ))}
                     </div>
                   ) : (
-                    <div
-                      style={{
-                        flex: 1,
-                        display: "flex",
-                        flexDirection: "column",
-                        animation: "fadeIn 0.4s ease-out forwards",
-                      }}
-                    >
+                    <div className={editorAnimatedContainerStyles}>
                       <Editor
                         value={code}
                         onValueChange={setCode}
@@ -964,7 +969,7 @@ const App = () => {
                       onClick={clearTerminal}
                       style={{
                         cursor: "pointer",
-                        color: "#888",
+                        color: "var(--text-muted)",
                         display: "flex",
                         alignItems: "center",
                       }}
@@ -988,7 +993,7 @@ const App = () => {
                       style={{
                         cursor: "pointer",
                         fontSize: "11px",
-                        color: "#888",
+                        color: "var(--text-muted)",
                         textTransform: "uppercase",
                         display: "flex",
                         alignItems: "center",
@@ -1030,24 +1035,28 @@ const App = () => {
                 {/* Terminal output */}
                 <pre className={terminalContentStyles} ref={terminalRef}>
                   {output.split("\n").map((line, idx) => {
-                    let color = "#cccccc";
+                    let color = "var(--text-main)";
                     const isClickable =
                       line.match(/main\.(c|cpp|py|js):(\d+)/) ||
                       line.match(/main\.py", line (\d+)/) ||
                       line.match(/main\.js:(\d+)/);
 
-                    if (line.startsWith("> ")) color = "#0075d4ff";
+                    if (line.startsWith("> ")) color = "var(--accent-color)";
                     else if (
                       line.startsWith("[Error]") ||
                       line.startsWith("[System Error]")
                     )
-                      color = "#f44747";
-                    else if (line.startsWith("[Done]")) color = "#007910ff";
+                      color = "var(--error-color)";
+                    else if (
+                      line.startsWith("[Done]") ||
+                      line.startsWith("[Success]")
+                    )
+                      color = "var(--success-color, #2ea043)";
                     else if (
                       line.startsWith("Welcome to") ||
                       line.startsWith("Waiting for")
                     )
-                      color = "#ebb222ff";
+                      color = "var(--warning-color, #d18616)";
 
                     return (
                       <div

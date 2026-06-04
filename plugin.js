@@ -7,8 +7,6 @@ const fs = require("fs");
 const fsPromises = require("fs/promises");
 const path = require("path");
 
-/** ─── use-c Transform ─────────────────────────────────────────────────────── */
-
 /**
  * Finds the index of the closing brace `}` that closes the first opened `{`.
  * Returns null if no matching brace is found.
@@ -63,8 +61,6 @@ const useCPlugin = {
     }));
   },
 };
-
-/** ─── Env ─────────────────────────────────────────────────────────────────── */
 
 /**
  * Reads the GEMINI_API_KEY from a local .env file.

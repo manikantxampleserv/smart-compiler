@@ -1,7 +1,16 @@
+/**
+ * @fileoverview Watch script to automatically rebuild the client application during development.
+ */
+
 const esbuild = require("esbuild");
 const fs = require("fs/promises");
 const { useCPlugin, loadGeminiKey } = require("./plugin.js");
 
+/**
+ * Initializes and starts the esbuild watcher context.
+ * Cleans the dist directory before starting.
+ * @returns {Promise<void>}
+ */
 async function watch() {
   await fs.rm("dist", { recursive: true, force: true });
   await fs.mkdir("dist", { recursive: true });

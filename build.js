@@ -1,7 +1,16 @@
+/**
+ * @fileoverview Build script to bundle the client application using esbuild.
+ */
+
 const esbuild = require("esbuild");
 const fs = require("fs/promises");
 const { useCPlugin, loadGeminiKey } = require("./plugin.js");
 
+/**
+ * Executes the build process. Cleans the dist directory, bundles the
+ * client code with the useCPlugin, and copies index.html.
+ * @returns {Promise<void>}
+ */
 async function build() {
   await fs.rm("dist", { recursive: true, force: true });
   await fs.mkdir("dist", { recursive: true });

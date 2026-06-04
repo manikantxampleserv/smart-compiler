@@ -37,8 +37,8 @@ export const topAreaStyles = css`
 
 export const sidebarStyles = css`
   width: 250px;
-  background-color: #252526;
-  border-right: 1px solid #333333;
+  background-color: var(--bg-sidebar);
+  border-right: 1px solid var(--border-color);
   display: flex;
   flex-direction: column;
 `;
@@ -47,7 +47,7 @@ export const sidebarHeaderStyles = css`
   padding: 8px 20px;
   font-size: 11px;
   text-transform: uppercase;
-  color: #cccccc;
+  color: var(--text-main);
   letter-spacing: 0.5px;
   display: flex;
   align-items: center;
@@ -57,9 +57,9 @@ export const sidebarHeaderStyles = css`
 export const fileItemStyles = css`
   padding: 4px 20px;
   font-size: 13px;
-  color: #cccccc;
+  color: var(--text-main);
   cursor: pointer;
-  background-color: #37373d;
+  background-color: var(--bg-hover);
   display: flex;
   align-items: center;
   gap: 8px;
@@ -76,13 +76,13 @@ export const mainAreaStyles = css`
   flex: 1;
   display: flex;
   flex-direction: column;
-  background-color: #1e1e1e;
+  background-color: var(--bg-main);
   overflow: hidden;
 `;
 
 export const tabsBarStyles = css`
   display: flex;
-  background-color: #2d2d2d;
+  background-color: var(--bg-header);
   height: 35px;
   align-items: center;
   justify-content: space-between;
@@ -90,23 +90,22 @@ export const tabsBarStyles = css`
 `;
 
 export const tabStyles = css`
-  background-color: #1e1e1e;
-  color: #ffffff;
+  background-color: var(--bg-main);
+  color: var(--text-main);
   padding: 0 16px;
   height: 100%;
   display: flex;
   align-items: center;
   font-size: 13px;
-  border-top: 1px solid #007acc;
+  border-top: 1px solid var(--accent-color);
   cursor: pointer;
   gap: 6px;
 `;
 
 export const runButtonStyles = css`
   margin-left: auto;
-  margin-right: 12px;
   background: transparent;
-  color: #cccccc;
+  color: var(--text-main);
   border: none;
   cursor: pointer;
   font-size: 13px;
@@ -147,14 +146,14 @@ export const editorWrapperStyles = css`
 
 export const lineNumbersStyles = css`
   padding: 20px 15px;
-  background-color: #1e1e1e;
-  color: #858585;
+  background-color: var(--bg-main);
+  color: var(--text-muted);
   text-align: right;
   user-select: none;
   font-family: "Consolas", "Courier New", monospace;
   font-size: 14px;
   line-height: 1.5;
-  border-right: 1px solid #333333;
+  border-right: 1px solid var(--border-color);
 `;
 
 export const editorStyles = css`
@@ -176,15 +175,15 @@ export const skeletonContainerStyles = css`
 
 export const skeletonLineStyles = css`
   height: 14px;
-  background-color: #2d2d2d;
+  background-color: var(--bg-header);
   border-radius: 4px;
   background-image: linear-gradient(
     90deg,
-    rgba(255, 255, 255, 0) 0,
-    rgba(255, 255, 255, 0.04) 20%,
-    rgba(255, 255, 255, 0.08) 50%,
-    rgba(255, 255, 255, 0.04) 80%,
-    rgba(255, 255, 255, 0) 100%
+    var(--skeleton-grad-1) 0,
+    var(--skeleton-grad-2) 20%,
+    var(--skeleton-grad-3) 50%,
+    var(--skeleton-grad-2) 80%,
+    var(--skeleton-grad-1) 100%
   );
   background-size: 200% 100%;
   animation: shimmer-skeleton 1.5s infinite linear;
@@ -202,34 +201,34 @@ export const skeletonLineStyles = css`
 /** ─── Terminal ──────────────────────────────────────────────────────────────────────── */
 
 export const terminalPanelSideStyles = css`
-  background-color: #1e1e1e;
-  border-left: 1px solid #444444;
+  background-color: var(--bg-main);
+  border-left: 1px solid var(--border-color);
   display: flex;
   flex-direction: column;
 `;
 
 export const terminalPanelBottomStyles = css`
-  background-color: #1e1e1e;
-  border-top: 1px solid #444444;
+  background-color: var(--bg-main);
+  border-top: 1px solid var(--border-color);
   display: flex;
   flex-direction: column;
 `;
 
 export const resizerStylesRow = css`
   width: 4px;
-  background-color: #2d2d2d;
+  background-color: var(--bg-header);
   cursor: col-resize;
   &:hover {
-    background-color: #007acc;
+    background-color: var(--accent-color);
   }
 `;
 
 export const resizerStylesCol = css`
   height: 4px;
-  background-color: #2d2d2d;
+  background-color: var(--bg-header);
   cursor: row-resize;
   &:hover {
-    background-color: #007acc;
+    background-color: var(--accent-color);
   }
 `;
 
@@ -241,10 +240,10 @@ export const terminalHeaderStyles = css`
 `;
 
 export const terminalTabStyles = css`
-  color: #e7e7e7;
+  color: var(--text-strong);
   text-transform: uppercase;
   font-size: 11px;
-  border-bottom: 1px solid #e7e7e7;
+  border-bottom: 1px solid var(--text-strong);
   padding-bottom: 2px;
   margin-right: 20px;
   cursor: pointer;
@@ -256,7 +255,7 @@ export const terminalContentStyles = css`
   font-family: "Consolas", "Courier New", monospace;
   font-size: 13px;
   line-height: 1.5;
-  color: #cccccc;
+  color: var(--text-main);
   overflow-y: auto;
   margin: 0;
   white-space: pre-wrap;
@@ -266,8 +265,8 @@ export const terminalContentStyles = css`
 
 export const statusBarStyles = css`
   height: 22px;
-  background-color: #007acc;
-  color: #ffffff;
+  background-color: var(--accent-color);
+  color: var(--text-light);
   display: flex;
   align-items: center;
   padding: 0 10px;
@@ -277,16 +276,218 @@ export const statusBarStyles = css`
 
 export const inputAreaStyles = css`
   height: 60px;
-  background-color: #1e1e1e;
-  color: #cccccc;
+  background-color: var(--bg-main);
+  color: var(--text-main);
   font-family: "Consolas", "Courier New", monospace;
   font-size: 13px;
   border: none;
-  border-top: 1px solid #444;
+  border-top: 1px solid var(--border-color);
   padding: 10px 20px;
   resize: none;
   outline: none;
   &::placeholder {
-    color: #666;
+    color: var(--text-muted);
   }
+`;
+export const appStyles = css`
+  height: 100vh;
+  width: 100vw;
+  display: flex;
+  flex-direction: column;
+  background-color: var(--bg-main);
+  color: var(--text-main);
+`;
+
+export const editorAnimatedContainerStyles = css`
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  position: relative;
+  animation: fadeIn 0.3s ease-in-out;
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+      transform: translateY(5px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+`;
+
+export const errorHighlightOverlayStyles = css`
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 21px;
+  background-color: var(--error-bg);
+  border-left: 3px solid var(--error-color);
+  pointer-events: none;
+  z-index: 10;
+`;
+
+export const languageSelectStyles = css`
+  background-color: transparent;
+  color: var(--text-main);
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  padding: 2px 5px;
+  font-size: 12px;
+  width: 150px;
+  cursor: pointer;
+  outline: none;
+  option {
+    background-color: var(--bg-main);
+    color: var(--text-main);
+  }
+`;
+
+export const modalOverlayStyles = css`
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: var(--modal-overlay);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+  backdrop-filter: blur(2px);
+`;
+
+export const modalContainerStyles = css`
+  background-color: var(--bg-main);
+  border-radius: 8px;
+  width: 400px;
+  max-width: 90vw;
+  box-shadow: 0 4px 20px var(--modal-shadow);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid var(--border-color);
+  animation: modalPop 0.2s ease-out;
+  @keyframes modalPop {
+    from {
+      opacity: 0;
+      transform: scale(0.95);
+    }
+    to {
+      opacity: 1;
+      transform: scale(1);
+    }
+  }
+`;
+
+export const modalHeaderStyles = css`
+  padding: 15px 20px;
+  background-color: var(--bg-header);
+  border-bottom: 1px solid var(--border-color);
+  font-weight: bold;
+  font-size: 16px;
+  color: var(--text-strong);
+`;
+
+export const modalBodyStyles = css`
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+`;
+
+export const modalMessageStyles = css`
+  font-size: 14px;
+  color: var(--text-main);
+  line-height: 1.5;
+`;
+
+export const modalFieldsContainerStyles = css`
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+`;
+
+export const modalFieldStyles = css`
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+`;
+
+export const modalLabelStyles = css`
+  font-size: 13px;
+  color: var(--text-muted);
+  font-weight: 500;
+`;
+
+export const modalInputStyles = css`
+  padding: 8px 12px;
+  border-radius: 4px;
+  border: 1px solid var(--border-color);
+  background-color: var(--bg-main);
+  color: var(--text-main);
+  font-size: 14px;
+  outline: none;
+  &:focus {
+    border-color: var(--accent-color);
+  }
+`;
+
+export const modalFooterStyles = css`
+  padding: 15px 20px;
+  background-color: var(--bg-sidebar);
+  border-top: 1px solid var(--border-color);
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+`;
+
+export const modalBtnCancelStyles = css`
+  padding: 8px 16px;
+  border-radius: 4px;
+  border: 1px solid var(--border-color);
+  background-color: transparent;
+  color: var(--text-main);
+  cursor: pointer;
+  font-size: 13px;
+  &:hover {
+    background-color: var(--bg-hover);
+  }
+`;
+
+export const modalBtnSubmitStyles = css`
+  padding: 8px 16px;
+  border-radius: 4px;
+  border: none;
+  background-color: var(--accent-color);
+  color: #fff;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 500;
+  &:hover {
+    background-color: var(--accent-hover);
+  }
+`;
+
+export const retryTranslationBtnStyles = css`
+  padding: 4px 8px;
+  background-color: var(--error-bg);
+  color: var(--error-color);
+  border: 1px solid var(--error-border);
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 12px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  &:hover {
+    background-color: var(--error-color);
+    color: #fff;
+  }
+`;
+
+export const tabsBarActionsStyles = css`
+  display: flex;
+  align-items: center;
+  gap: 12px;
 `;
